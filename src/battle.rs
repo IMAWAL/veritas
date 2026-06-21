@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Result};
 
 use crate::{
-    kreide::types::{RPG_GameCore_AbilityProperty, RPG_GameCore_AttackType},
+    kreide::types::RPG_GameCore_AttackType,
     models::{events::*, packets::Packet, types::*},
     server,
 };

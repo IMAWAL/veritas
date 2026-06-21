@@ -1,5 +1,5 @@
 ﻿use crate::{kreide::types::RPG_GameCore_AvatarPropertyType, ui::app::{DamageBarValue, DamageBreakdownChart, DamageBreakdownScope, GraphUnit}};
-use egui::{Align, Align2, Color32, CornerRadius, FontId, Frame, Layout, Pos2, Rect, RichText, ScrollArea, Sense, Stroke, StrokeKind, TextStyle, Ui, Vec2};
+use egui::{Align, Align2, Color32, CornerRadius, FontId, Layout, Pos2, Rect, RichText, ScrollArea, Sense, Stroke, StrokeKind, TextStyle, Ui, Vec2};
 use egui_extras::Column;
 use egui_plot::{Bar, BarChart, Line, Plot, PlotPoints, Polygon};
 
