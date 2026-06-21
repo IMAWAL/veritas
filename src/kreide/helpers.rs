@@ -1,8 +1,14 @@
-use std::{ptr::null, sync::LazyLock};
+use std::ptr::null;
 
 use crate::{
     kreide::types::{
-        RPG_Client_AvatarHelper, RPG_Client_CachedAssetLoader, RPG_Client_UIGameEntityUtils, RPG_GameCore_AttackType__Boxed, RPG_GameCore_AvatarExcelTable, RPG_GameCore_AvatarPropertyExcelTable, RPG_GameCore_AvatarPropertyType__Boxed, RPG_GameCore_AvatarRow, RPG_GameCore_MonsterDataComponent, RPG_GameCore_MonsterTemplateExcelTable, RPG_GameCore_ServantDataComponent, UnityEngine_Graphics, UnityEngine_ImageConversion, UnityEngine_Rect, UnityEngine_RenderTexture, UnityEngine_Sprite, UnityEngine_Texture2D
+        RPG_Client_AvatarHelper, RPG_Client_CachedAssetLoader, RPG_Client_UIGameEntityUtils,
+        RPG_GameCore_AttackType__Boxed, RPG_GameCore_AvatarExcelTable,
+        RPG_GameCore_AvatarPropertyExcelTable, RPG_GameCore_AvatarPropertyType__Boxed,
+        RPG_GameCore_AvatarRow, RPG_GameCore_MonsterDataComponent,
+        RPG_GameCore_MonsterTemplateExcelTable, RPG_GameCore_ServantDataComponent,
+        UnityEngine_Graphics, UnityEngine_ImageConversion, UnityEngine_Rect,
+        UnityEngine_RenderTexture, UnityEngine_Sprite, UnityEngine_Texture2D,
     },
     models::types::{Avatar, Skill},
 };
@@ -14,9 +20,8 @@ use il2cpp_runtime::{
 };
 
 use super::types::{
-    RPG_Client_TextID, RPG_Client_TextmapStatic,
-    RPG_GameCore_BattleInstance, RPG_GameCore_GameEntity,
-    RPG_GameCore_SkillData,
+    RPG_Client_TextID, RPG_Client_TextmapStatic, RPG_GameCore_BattleInstance,
+    RPG_GameCore_GameEntity, RPG_GameCore_SkillData,
 };
 
 fn sanitize_entity_name<S: AsRef<str>>(name: S) -> String {
@@ -31,7 +36,6 @@ fn sanitize_entity_name<S: AsRef<str>>(name: S) -> String {
 pub fn get_textmap_content(hash: &RPG_Client_TextID) -> Result<String> {
     Ok(unsafe { RPG_Client_TextmapStatic::get_text(hash, null()) }.map(|s| s.to_string())?)
 }
-
 
 #[named]
 pub fn get_avatar_data_from_id(avatar_id: u32) -> Result<RPG_GameCore_AvatarRow> {
@@ -95,9 +99,7 @@ pub unsafe fn get_avatar_from_entity(entity: RPG_GameCore_GameEntity) -> Result<
     let avatar_data =
         get_avatar_data_from_id(id).context(format!("AvatarData with id {id} was null"))?;
 
-    let name = unsafe {
-        RPG_Client_AvatarHelper::GetAvatarName(id)?.to_string()
-    };
+    let name = unsafe { RPG_Client_AvatarHelper::GetAvatarName(id)?.to_string() };
 
     Ok(Avatar {
         id,
@@ -376,17 +378,13 @@ pub fn get_property_icon_png_bytes(property_name: &str) -> Result<Vec<u8>> {
             get_type_handle("RPG.GameCore.AvatarPropertyType")?,
             Il2CppString::new(property_name)?,
         )?);
-        
+
         let row = RPG_GameCore_AvatarPropertyExcelTable::GetData(*property_type)?;
         let icon_path = row.IconPath()?;
 
         let type_handle = get_type_handle(UnityEngine_Sprite::ffi_name())?;
-        
-        let sprite = RPG_Client_CachedAssetLoader::SyncLoadAsset(
-            icon_path,
-            type_handle,
-            false,
-        )?;
+
+        let sprite = RPG_Client_CachedAssetLoader::SyncLoadAsset(icon_path, type_handle, false)?;
         let sprite = UnityEngine_Sprite(sprite.0);
         let tex = sprite.get_texture()?;
 

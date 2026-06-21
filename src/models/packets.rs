@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use super::types::{Avatar, Enemy, Entity, Skill, Property, Team, TurnInfo};
+use super::types::{Avatar, Enemy, Entity, Property, Skill, Team, TurnInfo};
 
 macro_rules! packet {
     ($(

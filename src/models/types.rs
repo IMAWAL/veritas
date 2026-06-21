@@ -3,17 +3,13 @@ use std::fmt;
 
 use crate::kreide::types::RPG_GameCore_AbilityProperty;
 
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Avatar {
     pub id: u32,
     pub name: String,
 }
-
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Enemy {
@@ -26,20 +22,18 @@ pub struct Enemy {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct BattleEntity {
     pub entity: Entity,
-    pub properties: BattleStats
+    pub properties: BattleStats,
 }
-
 
 #[derive(Default, Clone, Debug, Deserialize, Serialize)]
 pub struct BattleStats {
     pub properties: HashMap<String, f64>,
 }
 
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Entity {
     pub uid: u32,
-    pub team: Team
+    pub team: Team,
 }
 
 impl PartialEq for Entity {
@@ -51,7 +45,7 @@ impl PartialEq for Entity {
 #[derive(PartialEq, Clone, Debug, Deserialize, Serialize)]
 pub enum Team {
     Player,
-    Enemy
+    Enemy,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -104,7 +98,7 @@ pub struct Skill {
     pub name: String,
     #[serde(rename = "type")]
     pub skill_type: String,
-    pub skill_config_id: isize
+    pub skill_config_id: isize,
 }
 
 impl fmt::Display for Skill {
@@ -112,7 +106,6 @@ impl fmt::Display for Skill {
         write!(f, "[{}] {}", self.skill_type, self.name)
     }
 }
-
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct TurnInfo {

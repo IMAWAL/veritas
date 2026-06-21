@@ -1,19 +1,18 @@
-use crate::{get_module_handle, logging, overlay, server, subscribers};
+use crate::{get_module_handle, logging, server, subscribers};
+use anyhow::{Context, Result, anyhow};
 use ctor::ctor;
-use egui_notify::Toast;
 use il2cpp_runtime::api::ApiIndexTable;
-use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
-use windows::Win32::System::ProcessStatus::{GetModuleInformation, MODULEINFO};
-use windows::Win32::System::Threading::GetCurrentProcess;
-use windows::core::w;
 use std::ffi::c_void;
 use std::io::Cursor;
 use std::{
     thread::{self},
     time::Duration,
 };
+use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use anyhow::{Context, Result, anyhow};
+use windows::Win32::System::ProcessStatus::{GetModuleInformation, MODULEINFO};
+use windows::Win32::System::Threading::GetCurrentProcess;
+use windows::core::w;
 
 #[ctor]
 fn entry() {
@@ -27,32 +26,24 @@ fn init() {
         windows::Win32::System::Console::AllocConsole().unwrap();
     }
 
-    let mut toasts = Vec::<Toast>::new();
     let plugin_name = format!("{} ({})", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
     log::info!("{}", plugin_name);
     match setup_subscribers() {
         Ok(_) => {
             let msg = format!("Core initialized successfully");
             log::info!("{}", msg);
-            toasts.push(Toast::success(msg));
         }
         Err(e) => {
-            let err = format!("Plugin version is incompatible with the game. Core has been disabled: {e}");
+            let err = format!(
+                "Plugin version is incompatible with the game. Core has been disabled: {e}"
+            );
             log::error!("{}", err);
-            let mut toast = Toast::error(err);
-            toast.duration(None);
-            toasts.push(toast);
         }
     };
 
     thread::spawn(|| server::start_server());
-
-    match overlay::initialize(toasts) {
-        Ok(_) => log::info!("Overlay initialized successfully"),
-        Err(e) => log::error!("Overlay failed to initialize: {}", e),
-    }
+    log::info!("WebUI server initialized successfully");
 }
-
 
 fn get_il2cpp_table_offset() -> Result<usize> {
     unsafe {
@@ -137,4 +128,3 @@ fn setup_subscribers() -> anyhow::Result<()> {
         Ok(())
     }
 }
-

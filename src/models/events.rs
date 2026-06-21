@@ -1,5 +1,4 @@
-
-use super::types::{Avatar, Enemy, Entity, Skill, Property, Team};
+use super::types::{Avatar, Enemy, Entity, Property, Skill, Team};
 
 pub enum Event {
     OnBattleBegin(OnBattleBeginEvent),
@@ -14,13 +13,13 @@ pub enum Event {
     OnStatChange(OnStatChangeEvent),
     OnEntityDefeated(OnEntityDefeatedEvent),
     OnUpdateTeamFormation(OnUpdateTeamFormationEvent),
-    OnInitializeEnemy(OnInitializeEnemyEvent)
+    OnInitializeEnemy(OnInitializeEnemyEvent),
 }
 
 pub struct OnBattleBeginEvent {
     pub max_waves: u32,
     pub max_cycles: u32,
-    pub stage_id: u32
+    pub stage_id: u32,
 }
 
 pub struct OnUpdateWaveEvent {
@@ -33,12 +32,12 @@ pub struct OnUpdateCycleEvent {
 
 pub struct OnTurnBeginEvent {
     pub action_value: f64,
-    pub turn_owner: Option<Entity>
+    pub turn_owner: Option<Entity>,
 }
 
 pub struct OnUseSkillEvent {
     pub avatar: Entity,
-    pub skill: Skill
+    pub skill: Skill,
 }
 
 pub struct OnSetLineupEvent {
@@ -54,19 +53,19 @@ pub struct OnDamageEvent {
 
 pub struct OnEntityDefeatedEvent {
     pub killer: Entity,
-    pub entity_defeated: Entity
+    pub entity_defeated: Entity,
 }
 
 pub struct OnStatChangeEvent {
     pub entity: Entity,
-    pub property: Property
+    pub property: Property,
 }
 
 pub struct OnUpdateTeamFormationEvent {
     pub entities: Vec<Entity>,
-    pub team: Team
+    pub team: Team,
 }
 
 pub struct OnInitializeEnemyEvent {
-    pub enemy: Enemy
+    pub enemy: Enemy,
 }

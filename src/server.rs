@@ -1,9 +1,9 @@
+use anyhow::anyhow;
 use axum::{Router, response::Redirect, routing::get};
 use socketioxide::{SocketIo, extract::SocketRef};
 use std::{net::SocketAddr, str::FromStr, sync::OnceLock};
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
-use anyhow::anyhow;
 
 use crate::{RUNTIME, models::packets::Packet};
 

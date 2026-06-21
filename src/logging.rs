@@ -1,5 +1,4 @@
-use anyhow::{anyhow, Context, Result};
-use egui_logger::EguiLogger;
+use anyhow::{Context, Result, anyhow};
 use log::{Level, LevelFilter, Metadata, Record};
 use slog::{Drain, Logger, o};
 use std::{
@@ -11,7 +10,6 @@ static LOGGER: OnceLock<MultiLogger> = OnceLock::new();
 
 pub struct MultiLogger {
     sloggers: Vec<Logger>,
-    egui_logger: EguiLogger,
 }
 
 impl log::Log for MultiLogger {
@@ -20,8 +18,6 @@ impl log::Log for MultiLogger {
     }
 
     fn log(&self, record: &Record) {
-        self.egui_logger.log(record);
-
         let fmt_log = if let Some(mod_path) = record.module_path() {
             format!("{} {}", mod_path, record.args())
         } else {
@@ -96,16 +92,12 @@ impl MultiLogger {
             sloggers.push(Logger::root(filtered_drain, o!()));
         }
 
-        let egui_logger = egui_logger::builder().build();
-        let multi_logger = MultiLogger {
-            sloggers,
-            egui_logger,
-        };
+        let multi_logger = MultiLogger { sloggers };
 
         if LOGGER.set(multi_logger).is_err() {
             return Err(anyhow!("Failed to initialize MultiLogger"));
         }
-        
+
         if log::set_logger(LOGGER.get().context("Failed to get MultiLogger")?).is_err() {
             return Err(anyhow!("Failed to set MultiLogger"));
         }

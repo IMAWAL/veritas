@@ -1,9 +1,9 @@
+use chrono::DateTime;
+use directories::BaseDirs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use directories::BaseDirs;
-use chrono::DateTime;
 
 use crate::battle::BattleContext;
 use crate::kreide::types::RPG_GameCore_AbilityProperty;
@@ -236,23 +236,24 @@ impl BattleDataExporter {
     fn get_export_directory() -> Result<PathBuf, Box<dyn std::error::Error>> {
         Self::get_export_directory_with_custom_path(None, true)
     }
-    
+
     pub fn get_export_directory_with_custom_path(
-        custom_path: Option<&str>, 
-        auto_create_date_folders: bool
+        custom_path: Option<&str>,
+        auto_create_date_folders: bool,
     ) -> Result<PathBuf, Box<dyn std::error::Error>> {
         let base_path = if let Some(custom_path) = custom_path {
             PathBuf::from(custom_path)
         } else {
             if let Some(base_dirs) = BaseDirs::new() {
-                base_dirs.data_local_dir()
+                base_dirs
+                    .data_local_dir()
                     .join(env!("CARGO_PKG_NAME"))
                     .join("battledata")
             } else {
                 return Err("Could not determine local data directory".into());
             }
         };
-        
+
         let export_dir = if auto_create_date_folders {
             let timestamp = Self::generate_timestamp();
             let date_folder = Self::format_date_from_timestamp(timestamp);
@@ -260,7 +261,7 @@ impl BattleDataExporter {
         } else {
             base_path
         };
-        
+
         std::fs::create_dir_all(&export_dir)?;
         Ok(export_dir)
     }
@@ -286,7 +287,7 @@ impl BattleDataExporter {
             })
             .collect();
         let mut turn_history = Vec::new();
-        
+
         turn_history.push(ExportTurnBattleInfo {
             avatar_id: Self::INITIAL_TURN_ID,
             action_value: 0.0,
@@ -310,11 +311,13 @@ impl BattleDataExporter {
                 damage_detail: skill
                     .damage_detail
                     .iter()
-                    .map(|(damage, overkill_damage, damage_type)| ExportDamageDetail {
-                        damage: *damage,
-                        overkill_damage: *overkill_damage,
-                        r#type: damage_type.to_string(),
-                    })
+                    .map(
+                        |(damage, overkill_damage, damage_type)| ExportDamageDetail {
+                            damage: *damage,
+                            overkill_damage: *overkill_damage,
+                            r#type: damage_type.to_string(),
+                        },
+                    )
                     .collect(),
                 total_damage: skill.total_damage,
                 skill_type: skill.skill_type.clone(),
@@ -331,7 +334,7 @@ impl BattleDataExporter {
                 .find(|ba| ba.entity.uid == avatar.id)
                 .map(|be| Self::build_stats_map(&be.properties))
                 .unwrap_or_default();
-            
+
             let stats_history = Self::create_stats_history(&stats);
 
             avatar_detail.insert(
@@ -354,7 +357,7 @@ impl BattleDataExporter {
                 .find(|be| be.entity.uid == enemy.uid)
                 .map(|be| Self::build_stats_map(&be.properties))
                 .unwrap_or_default();
-            
+
             let stats_history = Self::create_stats_history(&stats);
 
             enemy_detail.insert(
@@ -381,7 +384,10 @@ impl BattleDataExporter {
             data_avatar: Vec::new(),
             total_av: battle_context.action_value,
             total_damage: battle_context.total_damage,
-            damage_per_av: Self::calculate_damage_per_av(battle_context.total_damage, battle_context.action_value),
+            damage_per_av: Self::calculate_damage_per_av(
+                battle_context.total_damage,
+                battle_context.action_value,
+            ),
             cycle_index: battle_context.cycle,
             wave_index: battle_context.wave,
             max_wave: battle_context.max_waves,
@@ -393,20 +399,26 @@ impl BattleDataExporter {
     }
 
     pub fn export_to_file_with_custom_path(
-        &self, 
-        battle_context: &BattleContext, 
+        &self,
+        battle_context: &BattleContext,
         filename: Option<String>,
         custom_path: Option<&str>,
-        auto_create_date_folders: bool
+        auto_create_date_folders: bool,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let export_data = self.export_battle_data(battle_context);
         let json = serde_json::to_string_pretty(&export_data)?;
-        
-        let export_dir = Self::get_export_directory_with_custom_path(custom_path, auto_create_date_folders)?;
+
+        let export_dir =
+            Self::get_export_directory_with_custom_path(custom_path, auto_create_date_folders)?;
         let filename = filename.unwrap_or_else(|| {
-            format!("{}_{}/{}.json", env!("CARGO_PKG_NAME"), Self::generate_timestamp(), env!("CARGO_PKG_NAME"))
+            format!(
+                "{}_{}/{}.json",
+                env!("CARGO_PKG_NAME"),
+                Self::generate_timestamp(),
+                env!("CARGO_PKG_NAME")
+            )
         });
-        
+
         let full_path = export_dir.join(&filename);
         if let Some(parent) = full_path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -416,28 +428,37 @@ impl BattleDataExporter {
     }
 
     pub fn export_to_csv_with_custom_path(
-        &self, 
-        battle_context: &BattleContext, 
+        &self,
+        battle_context: &BattleContext,
         filename: Option<String>,
         custom_path: Option<&str>,
-        auto_create_date_folders: bool
+        auto_create_date_folders: bool,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let export_dir = Self::get_export_directory_with_custom_path(custom_path, auto_create_date_folders)?;
+        let export_dir =
+            Self::get_export_directory_with_custom_path(custom_path, auto_create_date_folders)?;
         let filename = filename.unwrap_or_else(|| {
-            format!("{}_{}/{}.csv", env!("CARGO_PKG_NAME"), Self::generate_timestamp(), env!("CARGO_PKG_NAME"))
+            format!(
+                "{}_{}/{}.csv",
+                env!("CARGO_PKG_NAME"),
+                Self::generate_timestamp(),
+                env!("CARGO_PKG_NAME")
+            )
         });
-        
+
         let full_path = export_dir.join(&filename);
         if let Some(parent) = full_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         let chart_data = self.generate_comprehensive_chart_data(battle_context);
         self.write_csv(&chart_data, &full_path.to_string_lossy())?;
-        
+
         Ok(full_path.to_string_lossy().to_string())
     }
 
-    pub fn generate_comprehensive_chart_data(&self, battle_context: &BattleContext) -> Vec<ComprehensiveData> {
+    pub fn generate_comprehensive_chart_data(
+        &self,
+        battle_context: &BattleContext,
+    ) -> Vec<ComprehensiveData> {
         let mut all_data = Vec::new();
         let total_damage = battle_context.total_damage;
         let total_action_value = battle_context.action_value;
@@ -445,7 +466,9 @@ impl BattleDataExporter {
         let mut character_skills: HashMap<u32, HashMap<String, (u32, f64)>> = HashMap::new();
         for skill in &battle_context.skill_history {
             let char_skills = character_skills.entry(skill.avatar_id).or_default();
-            let skill_entry = char_skills.entry(skill.skill_name.clone()).or_insert((0, 0.0));
+            let skill_entry = char_skills
+                .entry(skill.skill_name.clone())
+                .or_insert((0, 0.0));
             skill_entry.0 += 1;
             skill_entry.1 += skill.total_damage;
         }
@@ -453,23 +476,33 @@ impl BattleDataExporter {
         let mut character_turn_stats: HashMap<u32, (Vec<u32>, Vec<f64>)> = HashMap::new();
         for (turn_idx, turn_data) in battle_context.turn_history.iter().enumerate() {
             for (avatar_idx, avatar) in battle_context.avatar_lineup.iter().enumerate() {
-                let turn_damage = turn_data.avatars_turn_damage.get(avatar_idx).copied().unwrap_or(0.0);
+                let turn_damage = turn_data
+                    .avatars_turn_damage
+                    .get(avatar_idx)
+                    .copied()
+                    .unwrap_or(0.0);
                 if turn_damage > 0.0 {
-                    let stats = character_turn_stats.entry(avatar.id).or_insert((Vec::new(), Vec::new()));
+                    let stats = character_turn_stats
+                        .entry(avatar.id)
+                        .or_insert((Vec::new(), Vec::new()));
                     stats.0.push((turn_idx + 1) as u32);
                     stats.1.push(turn_damage);
                 }
             }
         }
         for (i, avatar) in battle_context.avatar_lineup.iter().enumerate() {
-            let character_damage = battle_context.real_time_damages.get(i).copied().unwrap_or(0.0);
-            
+            let character_damage = battle_context
+                .real_time_damages
+                .get(i)
+                .copied()
+                .unwrap_or(0.0);
+
             let damage_percentage = if total_damage > 0.0 {
                 (character_damage / total_damage) * 100.0
             } else {
                 0.0
             };
-            
+
             let dpav = if total_action_value > 0.0 {
                 character_damage / total_action_value
             } else {
@@ -479,7 +512,8 @@ impl BattleDataExporter {
             let primary_skill_usage = character_skills
                 .get(&avatar.id)
                 .and_then(|skills| {
-                    skills.iter()
+                    skills
+                        .iter()
                         .max_by_key(|(_, (usage_count, _))| *usage_count)
                         .map(|(_, (usage, _))| *usage)
                 })
@@ -533,18 +567,20 @@ impl BattleDataExporter {
 
         for (turn_order, skill) in battle_context.skill_history.iter().enumerate() {
             cumulative_total_damage += skill.total_damage;
-            
+
             let char_cumulative = cumulative_character_damage
                 .entry(skill.avatar_id)
                 .or_insert(0.0);
             *char_cumulative += skill.total_damage;
 
-            let turn_info = battle_context.entity_turn_history
+            let turn_info = battle_context
+                .entity_turn_history
                 .get(skill.turn_battle_id as usize)
                 .map(|(_, av, wave, cycle)| (*av, *wave, *cycle))
                 .unwrap_or((0.0, 1, 1));
 
-            let character_name = battle_context.avatar_lineup
+            let character_name = battle_context
+                .avatar_lineup
                 .iter()
                 .find(|avatar| avatar.id == skill.avatar_id)
                 .map(|avatar| avatar.name.clone())
@@ -585,13 +621,17 @@ impl BattleDataExporter {
         all_data
     }
 
-    fn write_csv<T: Serialize>(&self, data: &[T], filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn write_csv<T: Serialize>(
+        &self,
+        data: &[T],
+        filename: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut wtr = csv::Writer::from_path(filename)?;
-        
+
         for record in data {
             wtr.serialize(record)?;
         }
-        
+
         wtr.flush()?;
         Ok(())
     }
