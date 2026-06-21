@@ -63,13 +63,13 @@ fn get_il2cpp_table_offset() -> Result<usize> {
         )
         .context("Failed to read module information")?;
 
-        let buffer = vec![0u8; lp_mod_info.SizeOfImage as usize];
+        let mut buffer = vec![0u8; lp_mod_info.SizeOfImage as usize];
         let mut bytes_read = 0usize;
 
         ReadProcessMemory(
             process_handle,
             module.0,
-            buffer.as_ptr() as _,
+            buffer.as_mut_ptr() as _,
             lp_mod_info.SizeOfImage as usize,
             Some(&mut bytes_read),
         )

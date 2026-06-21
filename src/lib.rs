@@ -13,7 +13,7 @@ mod subscribers;
 
 use anyhow::{Context, Result};
 use std::sync::LazyLock;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Builder, Runtime};
 use windows::{Win32::System::LibraryLoader::GetModuleHandleW, core::PCWSTR};
 
 fn get_module_handle(name: PCWSTR) -> Result<usize> {
@@ -25,8 +25,14 @@ fn get_module_handle(name: PCWSTR) -> Result<usize> {
 }
 
 pub static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
-    Runtime::new().unwrap_or_else(|e| {
-        log::error!("{e}");
-        panic!("{e}");
-    })
+    Builder::new_multi_thread()
+        .worker_threads(1)
+        .thread_name("veritas-runtime")
+        .enable_io()
+        .enable_time()
+        .build()
+        .unwrap_or_else(|e| {
+            log::error!("{e}");
+            panic!("{e}");
+        })
 });

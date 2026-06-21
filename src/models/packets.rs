@@ -23,13 +23,6 @@ macro_rules! packet {
                 }
             }
 
-            pub fn payload(&self) -> serde_json::Value {
-                match self {
-                    $(
-                        Self::$variant_name { .. } => serde_json::to_value(&self).unwrap(),
-                    )*
-                }
-            }
         }
     };
 }

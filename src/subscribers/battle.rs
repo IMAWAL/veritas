@@ -16,7 +16,6 @@ use anyhow::{Error, anyhow};
 use function_name::named;
 use il2cpp_runtime::Il2CppClass;
 use il2cpp_runtime::Il2CppObject;
-use il2cpp_runtime::System_RuntimeType;
 use il2cpp_runtime::api::il2cpp_class_get_fields;
 use il2cpp_runtime::api::il2cpp_field_get_name;
 use il2cpp_runtime::api::il2cpp_field_get_offset;
@@ -142,7 +141,7 @@ fn on_damage(
     log::debug!(function_name!());
 
     let defender_ability =
-        match System_RuntimeType::from_name(RPG_GameCore_TurnBasedAbilityComponent::ffi_name()) {
+        match helpers::get_runtime_type(RPG_GameCore_TurnBasedAbilityComponent::ffi_name()) {
             Ok(defender_ability_type) => match unsafe {
                 attacker_entity.get_component(defender_ability_type)
             } {
@@ -183,8 +182,7 @@ fn on_damage(
     safe_call!(unsafe {
         let mut event: Option<Result<Event>> = None;
         let attacker_ability =
-            match System_RuntimeType::from_name(RPG_GameCore_TurnBasedAbilityComponent::ffi_name())
-            {
+            match helpers::get_runtime_type(RPG_GameCore_TurnBasedAbilityComponent::ffi_name()) {
                 Ok(attacker_ability_type) => match unsafe {
                     attacker_entity.get_component(attacker_ability_type)
                 } {
@@ -1004,7 +1002,7 @@ static ENTITY_DEFEATED_OFFSETS: OnceLock<EntityDefeatedOffsets> = OnceLock::new(
 
 unsafe fn resolve_defeated_entity_offset() -> Result<EntityDefeatedOffsets> {
     // This should be enough
-    let buffer = vec![0u8; 0x9A];
+    let mut buffer = vec![0u8; 0x9A];
     let mut bytes_read = 0usize;
     let process_handle = unsafe { GetCurrentProcess() };
     let target_fn = RPG_GameCore_TurnBasedGameMode::get_class_static()?
@@ -1015,7 +1013,7 @@ unsafe fn resolve_defeated_entity_offset() -> Result<EntityDefeatedOffsets> {
         ReadProcessMemory(
             process_handle,
             target_fn.va(),
-            buffer.as_ptr() as _,
+            buffer.as_mut_ptr() as _,
             buffer.len(),
             Some(&mut bytes_read),
         )

@@ -1,4 +1,4 @@
-use std::ptr::null;
+use std::{ptr::null, sync::OnceLock};
 
 use crate::{
     kreide::types::{
@@ -128,12 +128,7 @@ pub unsafe fn get_avatar_from_servant_entity(entity: RPG_GameCore_GameEntity) ->
 pub unsafe fn get_monster_from_entity(entity: RPG_GameCore_GameEntity) -> Result<Avatar> {
     log::debug!(function_name!());
     let monster_data_comp = RPG_GameCore_MonsterDataComponent(
-        unsafe {
-            entity.get_component(System_RuntimeType::from_name(
-                "RPG.GameCore.MonsterDataComponent",
-            )?)?
-        }
-        .0,
+        unsafe { entity.get_component(get_runtime_type("RPG.GameCore.MonsterDataComponent")?)? }.0,
     );
 
     if monster_data_comp.0.is_null() {
@@ -154,12 +149,7 @@ pub unsafe fn get_monster_from_entity(entity: RPG_GameCore_GameEntity) -> Result
 pub unsafe fn get_servant_from_entity(entity: RPG_GameCore_GameEntity) -> Result<Avatar> {
     log::debug!(function_name!());
     let servant_data_comp = RPG_GameCore_ServantDataComponent(
-        unsafe {
-            entity.get_component(System_RuntimeType::from_name(
-                "RPG.GameCore.ServantDataComponent",
-            )?)?
-        }
-        .0,
+        unsafe { entity.get_component(get_runtime_type("RPG.GameCore.ServantDataComponent")?)? }.0,
     );
 
     if servant_data_comp.0.is_null() {
@@ -261,11 +251,112 @@ pub fn is_obfuscated_name<S: AsRef<str>>(name: S) -> bool {
     name.len() == 11 && name.chars().all(|c| c.is_ascii_uppercase())
 }
 
-pub fn get_type_handle<S: AsRef<str>>(type_name: S) -> Result<System_Type> {
+static ABILITY_PROPERTY_TYPE: OnceLock<System_Type> = OnceLock::new();
+static ALIVE_STATE_TYPE: OnceLock<System_Type> = OnceLock::new();
+static ATTACK_TYPE_TYPE: OnceLock<System_Type> = OnceLock::new();
+static AVATAR_PROPERTY_TYPE: OnceLock<System_Type> = OnceLock::new();
+static ENTITY_TYPE_TYPE: OnceLock<System_Type> = OnceLock::new();
+static RENDER_TEXTURE_FORMAT_TYPE: OnceLock<System_Type> = OnceLock::new();
+static RENDER_TEXTURE_READ_WRITE_TYPE: OnceLock<System_Type> = OnceLock::new();
+static SPRITE_TYPE: OnceLock<System_Type> = OnceLock::new();
+static TEAM_TYPE_TYPE: OnceLock<System_Type> = OnceLock::new();
+
+static MONSTER_DATA_COMPONENT_TYPE: OnceLock<System_RuntimeType> = OnceLock::new();
+static SERVANT_DATA_COMPONENT_TYPE: OnceLock<System_RuntimeType> = OnceLock::new();
+static TURN_BASED_ABILITY_COMPONENT_TYPE: OnceLock<System_RuntimeType> = OnceLock::new();
+
+fn resolve_type_handle(type_name: &str) -> Result<System_Type> {
     let type_name = type_name.as_ref();
     let runtime_type = System_RuntimeType::from_name(type_name)?;
     let ty = runtime_type.get_il2cpp_type();
     Ok(unsafe { System_Type::get_type_from_handle(ty)? })
+}
+
+fn cached_type_handle(
+    type_name: &'static str,
+    cache: &OnceLock<System_Type>,
+) -> Result<System_Type> {
+    if let Some(ty) = cache.get() {
+        return Ok(*ty);
+    }
+
+    let ty = resolve_type_handle(type_name)?;
+    let _ = cache.set(ty);
+    cache
+        .get()
+        .copied()
+        .context("Failed to cache IL2CPP type handle")
+}
+
+pub fn get_type_handle<S: AsRef<str>>(type_name: S) -> Result<System_Type> {
+    let type_name = type_name.as_ref();
+    match type_name {
+        "RPG.GameCore.AbilityProperty" => {
+            cached_type_handle("RPG.GameCore.AbilityProperty", &ABILITY_PROPERTY_TYPE)
+        }
+        "RPG.GameCore.AliveState" => {
+            cached_type_handle("RPG.GameCore.AliveState", &ALIVE_STATE_TYPE)
+        }
+        "RPG.GameCore.AttackType" => {
+            cached_type_handle("RPG.GameCore.AttackType", &ATTACK_TYPE_TYPE)
+        }
+        "RPG.GameCore.AvatarPropertyType" => {
+            cached_type_handle("RPG.GameCore.AvatarPropertyType", &AVATAR_PROPERTY_TYPE)
+        }
+        "RPG.GameCore.EntityType" => {
+            cached_type_handle("RPG.GameCore.EntityType", &ENTITY_TYPE_TYPE)
+        }
+        "RPG.GameCore.TeamType" => cached_type_handle("RPG.GameCore.TeamType", &TEAM_TYPE_TYPE),
+        "UnityEngine.RenderTextureFormat" => cached_type_handle(
+            "UnityEngine.RenderTextureFormat",
+            &RENDER_TEXTURE_FORMAT_TYPE,
+        ),
+        "UnityEngine.RenderTextureReadWrite" => cached_type_handle(
+            "UnityEngine.RenderTextureReadWrite",
+            &RENDER_TEXTURE_READ_WRITE_TYPE,
+        ),
+        "UnityEngine.Sprite" => cached_type_handle("UnityEngine.Sprite", &SPRITE_TYPE),
+        _ => resolve_type_handle(type_name),
+    }
+}
+
+fn resolve_runtime_type(type_name: &str) -> Result<System_RuntimeType> {
+    System_RuntimeType::from_name(type_name).map_err(Into::into)
+}
+
+fn cached_runtime_type(
+    type_name: &'static str,
+    cache: &OnceLock<System_RuntimeType>,
+) -> Result<System_RuntimeType> {
+    if let Some(ty) = cache.get() {
+        return Ok(*ty);
+    }
+
+    let ty = resolve_runtime_type(type_name)?;
+    let _ = cache.set(ty);
+    cache
+        .get()
+        .copied()
+        .context("Failed to cache IL2CPP runtime type")
+}
+
+pub fn get_runtime_type<S: AsRef<str>>(type_name: S) -> Result<System_RuntimeType> {
+    let type_name = type_name.as_ref();
+    match type_name {
+        "RPG.GameCore.MonsterDataComponent" => cached_runtime_type(
+            "RPG.GameCore.MonsterDataComponent",
+            &MONSTER_DATA_COMPONENT_TYPE,
+        ),
+        "RPG.GameCore.ServantDataComponent" => cached_runtime_type(
+            "RPG.GameCore.ServantDataComponent",
+            &SERVANT_DATA_COMPONENT_TYPE,
+        ),
+        "RPG.GameCore.TurnBasedAbilityComponent" => cached_runtime_type(
+            "RPG.GameCore.TurnBasedAbilityComponent",
+            &TURN_BASED_ABILITY_COMPONENT_TYPE,
+        ),
+        _ => resolve_runtime_type(type_name),
+    }
 }
 
 /// Extract render texture formats for texture-to-PNG conversion

@@ -54,19 +54,17 @@ fn on_connect(socket: SocketRef) {
     let packet = Packet::Connected {
         version: env!("CARGO_PKG_VERSION").to_string(),
     };
-    socket.emit(&packet.name(), &packet.payload()).ok();
+    socket.emit(packet.name(), &packet).ok();
 }
 
 pub fn broadcast(packet: Packet) {
+    let Some(io) = SOCKET_IO.get() else {
+        return;
+    };
+
     RUNTIME.spawn(async move {
-        if let Some(io) = SOCKET_IO.get() {
-            io.broadcast()
-                .emit(&packet.name(), &packet.payload())
-                .await
-                .unwrap_or_else(|e| {
-                    log::error!("{e}");
-                    panic!("{e}");
-                });
+        if let Err(e) = io.broadcast().emit(packet.name(), &packet).await {
+            log::error!("{e}");
         }
     });
 }
