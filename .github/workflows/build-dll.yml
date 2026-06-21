@@ -6,6 +6,7 @@ on:
     branches:
       - beta
       - beta-webuionly
+      - beta-performanceboost
   pull_request:
     branches:
       - beta

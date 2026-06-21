@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use egui_logger::EguiLogger;
 use log::{Level, LevelFilter, Metadata, Record};
 use slog::{Drain, Logger, o};
@@ -20,6 +20,10 @@ impl log::Log for MultiLogger {
     }
 
     fn log(&self, record: &Record) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+
         self.egui_logger.log(record);
 
         let fmt_log = if let Some(mod_path) = record.module_path() {
@@ -63,6 +67,7 @@ impl MultiLogger {
         }
 
         // Debug+ log file
+        #[cfg(debug_assertions)]
         {
             let log_path = format!("{}.debug.log", env!("CARGO_PKG_NAME"));
             let file = OpenOptions::new()
@@ -80,18 +85,13 @@ impl MultiLogger {
         }
 
         // Terminal
+        #[cfg(debug_assertions)]
         {
             let decorator = slog_term::TermDecorator::new().build();
             let drain = slog_term::FullFormat::new(decorator).build().fuse();
             let drain = Mutex::new(drain).fuse();
 
-            let level = if cfg!(debug_assertions) {
-                slog::Level::Debug
-            } else {
-                slog::Level::Info
-            };
-
-            let filtered_drain = slog::LevelFilter::new(drain, level).fuse();
+            let filtered_drain = slog::LevelFilter::new(drain, slog::Level::Debug).fuse();
 
             sloggers.push(Logger::root(filtered_drain, o!()));
         }
@@ -105,11 +105,15 @@ impl MultiLogger {
         if LOGGER.set(multi_logger).is_err() {
             return Err(anyhow!("Failed to initialize MultiLogger"));
         }
-        
+
         if log::set_logger(LOGGER.get().context("Failed to get MultiLogger")?).is_err() {
             return Err(anyhow!("Failed to set MultiLogger"));
         }
-        log::set_max_level(LevelFilter::Trace);
+        log::set_max_level(if cfg!(debug_assertions) {
+            LevelFilter::Trace
+        } else {
+            LevelFilter::Info
+        });
         Ok(())
     }
 }

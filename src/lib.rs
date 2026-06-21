@@ -16,11 +16,11 @@ mod subscribers;
 mod ui;
 mod updater;
 
+use anyhow::{Context, Result};
 use phf::phf_map;
 use std::sync::LazyLock;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Builder, Runtime};
 use windows::{Win32::System::LibraryLoader::GetModuleHandleW, core::PCWSTR};
-use anyhow::{Context, Result};
 
 fn get_module_handle(name: PCWSTR) -> Result<usize> {
     unsafe {
@@ -31,10 +31,16 @@ fn get_module_handle(name: PCWSTR) -> Result<usize> {
 }
 
 pub static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
-    Runtime::new().unwrap_or_else(|e| {
-        log::error!("{e}");
-        panic!("{e}");
-    })
+    Builder::new_multi_thread()
+        .worker_threads(1)
+        .thread_name("veritas-runtime")
+        .enable_io()
+        .enable_time()
+        .build()
+        .unwrap_or_else(|e| {
+            log::error!("{e}");
+            panic!("{e}");
+        })
 });
 
 pub const CHANGELOG: &str = include_str!("../CHANGELOG.MD");
@@ -86,7 +92,8 @@ mod tests {
                 }
 
                 app.update(ctx);
-            }).expect("failed to run app");
+            })
+            .expect("failed to run app");
         });
         handle.join().unwrap();
     }

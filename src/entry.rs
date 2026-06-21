@@ -1,19 +1,19 @@
 use crate::{get_module_handle, logging, overlay, server, subscribers};
+use anyhow::{Context, Result, anyhow};
 use ctor::ctor;
 use egui_notify::Toast;
 use il2cpp_runtime::api::ApiIndexTable;
-use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
-use windows::Win32::System::ProcessStatus::{GetModuleInformation, MODULEINFO};
-use windows::Win32::System::Threading::GetCurrentProcess;
-use windows::core::w;
 use std::ffi::c_void;
 use std::io::Cursor;
 use std::{
     thread::{self},
     time::Duration,
 };
+use windows::Win32::System::Diagnostics::Debug::ReadProcessMemory;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use anyhow::{Context, Result, anyhow};
+use windows::Win32::System::ProcessStatus::{GetModuleInformation, MODULEINFO};
+use windows::Win32::System::Threading::GetCurrentProcess;
+use windows::core::w;
 
 #[ctor]
 fn entry() {
@@ -37,7 +37,9 @@ fn init() {
             toasts.push(Toast::success(msg));
         }
         Err(e) => {
-            let err = format!("Plugin version is incompatible with the game. Core has been disabled: {e}");
+            let err = format!(
+                "Plugin version is incompatible with the game. Core has been disabled: {e}"
+            );
             log::error!("{}", err);
             let mut toast = Toast::error(err);
             toast.duration(None);
@@ -52,7 +54,6 @@ fn init() {
         Err(e) => log::error!("Overlay failed to initialize: {}", e),
     }
 }
-
 
 fn get_il2cpp_table_offset() -> Result<usize> {
     unsafe {
@@ -72,13 +73,13 @@ fn get_il2cpp_table_offset() -> Result<usize> {
         )
         .context("Failed to read module information")?;
 
-        let buffer = vec![0u8; lp_mod_info.SizeOfImage as usize];
+        let mut buffer = vec![0u8; lp_mod_info.SizeOfImage as usize];
         let mut bytes_read = 0usize;
 
         ReadProcessMemory(
             process_handle,
             module.0,
-            buffer.as_ptr() as _,
+            buffer.as_mut_ptr() as _,
             lp_mod_info.SizeOfImage as usize,
             Some(&mut bytes_read),
         )
@@ -137,4 +138,3 @@ fn setup_subscribers() -> anyhow::Result<()> {
         Ok(())
     }
 }
-

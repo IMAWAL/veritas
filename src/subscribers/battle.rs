@@ -16,7 +16,6 @@ use anyhow::{Error, anyhow};
 use function_name::named;
 use il2cpp_runtime::Il2CppClass;
 use il2cpp_runtime::Il2CppObject;
-use il2cpp_runtime::System_RuntimeType;
 use il2cpp_runtime::api::il2cpp_class_get_fields;
 use il2cpp_runtime::api::il2cpp_field_get_name;
 use il2cpp_runtime::api::il2cpp_field_get_offset;
@@ -34,10 +33,7 @@ use std::sync::OnceLock;
 unsafe fn get_elapsed_av(game_mode: RPG_GameCore_TurnBasedGameMode) -> Result<f64> {
     log::debug!(function_name!());
     Ok(unsafe {
-        RPG_GameCore_FixPoint::to_double(
-        *game_mode
-            ._ElapsedActionDelay_k__BackingField()?
-        )? * 10.
+        RPG_GameCore_FixPoint::to_double(*game_mode._ElapsedActionDelay_k__BackingField()?)? * 10.
     })
 }
 
@@ -144,21 +140,22 @@ fn on_damage(
 ) -> bool {
     log::debug!(function_name!());
 
-    let defender_ability = match System_RuntimeType::from_name(
-       RPG_GameCore_TurnBasedAbilityComponent::ffi_name()
-    ) {
-        Ok(defender_ability_type) => match unsafe { attacker_entity.get_component(defender_ability_type) } {
-            Ok(defender_ability) => RPG_GameCore_TurnBasedAbilityComponent(defender_ability.0),
+    let defender_ability =
+        match helpers::get_runtime_type(RPG_GameCore_TurnBasedAbilityComponent::ffi_name()) {
+            Ok(defender_ability_type) => match unsafe {
+                attacker_entity.get_component(defender_ability_type)
+            } {
+                Ok(defender_ability) => RPG_GameCore_TurnBasedAbilityComponent(defender_ability.0),
+                Err(e) => {
+                    log::error!("{} defender ability lookup error: {}", function_name!(), e);
+                    RPG_GameCore_TurnBasedAbilityComponent(null())
+                }
+            },
             Err(e) => {
-                log::error!("{} defender ability lookup error: {}", function_name!(), e);
+                log::error!("{} defender ability type error: {}", function_name!(), e);
                 RPG_GameCore_TurnBasedAbilityComponent(null())
             }
-        },
-        Err(e) => {
-            log::error!("{} defender ability type error: {}", function_name!(), e);
-            RPG_GameCore_TurnBasedAbilityComponent(null())
-        }
-    };
+        };
     // let hp_initial =
     //     match unsafe { defender_ability.get_property(RPG_GameCore_AbilityProperty::CurrentHP) } {
     //         Ok(value) => value,
@@ -184,22 +181,26 @@ fn on_damage(
         };
     safe_call!(unsafe {
         let mut event: Option<Result<Event>> = None;
-        let attacker_ability = match System_RuntimeType::from_name(
-            RPG_GameCore_TurnBasedAbilityComponent::ffi_name()
-        ) {
-            Ok(attacker_ability_type) => match unsafe { attacker_entity.get_component(attacker_ability_type) } {
-                Ok(attacker_ability) => RPG_GameCore_TurnBasedAbilityComponent(attacker_ability.0),
+        let attacker_ability =
+            match helpers::get_runtime_type(RPG_GameCore_TurnBasedAbilityComponent::ffi_name()) {
+                Ok(attacker_ability_type) => match unsafe {
+                    attacker_entity.get_component(attacker_ability_type)
+                } {
+                    Ok(attacker_ability) => {
+                        RPG_GameCore_TurnBasedAbilityComponent(attacker_ability.0)
+                    }
+                    Err(e) => {
+                        log::error!("{} attacker ability lookup error: {}", function_name!(), e);
+                        RPG_GameCore_TurnBasedAbilityComponent(null())
+                    }
+                },
                 Err(e) => {
-                    log::error!("{} attacker ability lookup error: {}", function_name!(), e);
+                    log::error!("{} attacker ability type error: {}", function_name!(), e);
                     RPG_GameCore_TurnBasedAbilityComponent(null())
                 }
-            },
-            Err(e) => {
-                log::error!("{} attacker ability type error: {}", function_name!(), e);
-                RPG_GameCore_TurnBasedAbilityComponent(null())
-            }
-        };
-        let attacker_team_value: RPG_GameCore_TeamType = parse_il2cpp_enum(attacker_entity._Team()?)?;
+            };
+        let attacker_team_value: RPG_GameCore_TeamType =
+            parse_il2cpp_enum(attacker_entity._Team()?)?;
 
         match attacker_team_value {
             RPG_GameCore_TeamType::TeamLight => {
@@ -225,7 +226,8 @@ fn on_damage(
                 };
 
                 let attack_owner = {
-                    let attack_owner = RPG_GameCore_AbilityStatic::get_actual_owner(attacker_entity)?;
+                    let attack_owner =
+                        RPG_GameCore_AbilityStatic::get_actual_owner(attacker_entity)?;
                     if !attack_owner.0.is_null() {
                         attack_owner
                     } else {
@@ -855,8 +857,10 @@ fn handle_hp_change(turn_based_ability_component: RPG_GameCore_TurnBasedAbilityC
             Il2CppString::new(&property_kind)?,
         )?);
 
-        let property_value = RPG_GameCore_FixPoint::to_double(turn_based_ability_component.get_property(*property)?)?;
-            
+        let property_value = RPG_GameCore_FixPoint::to_double(
+            turn_based_ability_component.get_property(*property)?,
+        )?;
+
         let entity = turn_based_ability_component.as_base()._OwnerRef()?;
         let entity_value: RPG_GameCore_EntityType = parse_il2cpp_enum(entity._EntityType()?)?;
 
@@ -920,7 +924,7 @@ pub fn on_direct_damage_hp(
     a3: *const c_void,
     a4: RPG_GameCore_FixPoint,
     a5: *const c_void,
-    a6: i32
+    a6: i32,
 ) {
     log::debug!(function_name!());
     let res = ON_DIRECT_DAMAGE_HP_Detour.call(instance, a1, a2, a3, a4, a5, a6);
@@ -964,13 +968,11 @@ pub fn on_stat_change(
                             team: Team::Player,
                         },
                         property: Property {
-                        r#type: property_kind.to_string(),
-                        value: property_value
-                    },
+                            r#type: property_kind.to_string(),
+                            value: property_value,
+                        },
                     })),
-                    Err(e) => {
-                        Err(anyhow!("{} Avatar Event Error: {}", function_name!(), e))
-                    }
+                    Err(e) => Err(anyhow!("{} Avatar Event Error: {}", function_name!(), e)),
                 };
                 BattleContext::handle_event(e);
             }
@@ -1008,7 +1010,7 @@ static ENTITY_DEFEATED_OFFSETS: OnceLock<EntityDefeatedOffsets> = OnceLock::new(
 
 unsafe fn resolve_defeated_entity_offset() -> Result<EntityDefeatedOffsets> {
     // This should be enough
-    let buffer = vec![0u8; 0x9A];
+    let mut buffer = vec![0u8; 0x9A];
     let mut bytes_read = 0usize;
     let process_handle = unsafe { GetCurrentProcess() };
     let target_fn = RPG_GameCore_TurnBasedGameMode::get_class_static()?
@@ -1019,7 +1021,7 @@ unsafe fn resolve_defeated_entity_offset() -> Result<EntityDefeatedOffsets> {
         ReadProcessMemory(
             process_handle,
             target_fn.va(),
-            buffer.as_ptr() as _,
+            buffer.as_mut_ptr() as _,
             buffer.len(),
             Some(&mut bytes_read),
         )
