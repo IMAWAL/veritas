@@ -8,31 +8,23 @@ use windows::{
     Wdk::System::SystemInformation::NtQuerySystemTime,
     Win32::{
         Foundation::{HWND, RECT},
-        Graphics::Gdi::{
-            GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow,
-            ScreenToClient,
-        },
+        Graphics::Gdi::ScreenToClient,
         System::SystemServices::{MK_CONTROL, MK_SHIFT},
         UI::{
             Input::{
-                KeyboardAndMouse::{
-                    GetAsyncKeyState, VIRTUAL_KEY, VK_BACK, VK_CONTROL, VK_DELETE, VK_DOWN, VK_END,
-                    VK_ESCAPE, VK_HOME, VK_INSERT, VK_LEFT, VK_LSHIFT, VK_NEXT, VK_PRIOR,
-                    VK_RETURN, VK_RIGHT, VK_SPACE, VK_TAB, VK_UP,
-                },
+                KeyboardAndMouse::{GetAsyncKeyState, VK_CONTROL, VK_LSHIFT},
                 Pointer::{
-                    GetPointerInfo, POINTER_BUTTON_CHANGE_TYPE, POINTER_FLAG_FIRSTBUTTON,
-                    POINTER_FLAG_SECONDBUTTON, POINTER_INFO,
+                    GetPointerInfo, POINTER_FLAG_FIRSTBUTTON, POINTER_FLAG_SECONDBUTTON,
+                    POINTER_INFO,
                 },
             },
-            Shell::GetScaleFactorForMonitor,
             WindowsAndMessaging::{
-                GetClientRect, GetMessageExtraInfo, KF_REPEAT, PT_MOUSE, PT_TOUCH, WHEEL_DELTA,
-                WM_CHAR, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP,
-                WM_MBUTTONDBLCLK, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEHWHEEL, WM_MOUSEMOVE,
-                WM_MOUSEWHEEL, WM_NCMOUSEMOVE, WM_POINTERDOWN, WM_POINTERUP, WM_POINTERUPDATE,
-                WM_RBUTTONDBLCLK, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
-                WM_XBUTTONDBLCLK, WM_XBUTTONDOWN, WM_XBUTTONUP, XBUTTON1, XBUTTON2,
+                GetClientRect, KF_REPEAT, PT_MOUSE, PT_TOUCH, WHEEL_DELTA, WM_CHAR, WM_KEYDOWN,
+                WM_KEYUP, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDBLCLK,
+                WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL,
+                WM_NCMOUSEMOVE, WM_POINTERDOWN, WM_POINTERUP, WM_POINTERUPDATE, WM_RBUTTONDBLCLK,
+                WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN, WM_SYSKEYUP, WM_XBUTTONDBLCLK,
+                WM_XBUTTONDOWN, WM_XBUTTONUP, XBUTTON1, XBUTTON2,
             },
         },
     },
@@ -92,8 +84,11 @@ impl InputHandler {
                         return InputResult::Unknown;
                     }
                     let mut pt = pointer_info.ptPixelLocation;
-                    if let Err(e) = ScreenToClient(self.hwnd, &mut pt) {
-                        log::debug!("ScreenToClient failed for pointer update: {:?}", e);
+                    if !ScreenToClient(self.hwnd, &mut pt).as_bool() {
+                        log::debug!(
+                            "ScreenToClient failed for pointer update: {:?}",
+                            windows::core::Error::from_win32()
+                        );
                         return InputResult::Unknown;
                     }
 
@@ -122,8 +117,11 @@ impl InputHandler {
                     }
                     let mut pt = pointer_info.ptPixelLocation;
 
-                    if let Err(e) = ScreenToClient(self.hwnd, &mut pt) {
-                        log::debug!("ScreenToClient failed for pointer button: {:?}", e);
+                    if !ScreenToClient(self.hwnd, &mut pt).as_bool() {
+                        log::debug!(
+                            "ScreenToClient failed for pointer button: {:?}",
+                            windows::core::Error::from_win32()
+                        );
                         return InputResult::Unknown;
                     }
                     let button = if pointer_info.pointerFlags.contains(POINTER_FLAG_FIRSTBUTTON) {

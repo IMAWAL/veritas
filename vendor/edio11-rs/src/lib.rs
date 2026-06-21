@@ -7,11 +7,10 @@ use std::{mem, sync::Once};
 
 use arboard::{Clipboard, ImageData};
 use backup::BackupState;
-use egui::{Context, Memory, PlatformOutput, RawInput, Vec2, gui_zoom::kb_shortcuts};
+use egui::{Context, Memory, PlatformOutput, Vec2, gui_zoom::kb_shortcuts};
 use errors::OverlayError;
 use input::{InputHandler, InputResult};
 use retour::static_detour;
-use windows::core::HSTRING;
 use windows::{
     Win32::{
         Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM},
@@ -509,7 +508,7 @@ impl<T: Overlay + ?Sized> OverlayHandler<T> {
                         | InputResult::Scroll => {
                             if options.should_capture_all_input
                                 || (overlay_handler.egui_ctx.wants_pointer_input()
-                                || overlay_handler.egui_ctx.is_pointer_over_area())
+                                    || overlay_handler.egui_ctx.is_pointer_over_area())
                             {
                                 return LRESULT(1);
                             }

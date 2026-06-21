@@ -1,15 +1,18 @@
+#![allow(unsafe_op_in_unsafe_fn)]
+
 use std::{cell::RefCell, mem::zeroed};
 use windows::Win32::{
     Foundation::RECT,
     Graphics::{
         Direct3D::D3D_PRIMITIVE_TOPOLOGY,
         Direct3D11::{
+            D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT,
+            D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT,
+            D3D11_VIEWPORT, D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE,
             ID3D11BlendState, ID3D11Buffer, ID3D11ClassInstance, ID3D11DepthStencilState,
             ID3D11DeviceContext, ID3D11GeometryShader, ID3D11InputLayout, ID3D11PixelShader,
             ID3D11RasterizerState, ID3D11SamplerState, ID3D11ShaderResourceView,
-            ID3D11VertexShader, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT,
-            D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT, D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT,
-            D3D11_VIEWPORT, D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE,
+            ID3D11VertexShader,
         },
         Dxgi::Common::DXGI_FORMAT,
     },
@@ -145,12 +148,8 @@ impl InnerState {
 
     #[inline]
     pub unsafe fn restore(&mut self, ctx: &ID3D11DeviceContext) {
-        ctx.RSSetScissorRects(Some(
-            &self.scissor_rects.as_slice()[..],
-        ));
-        ctx.RSSetViewports(Some(
-            &self.viewports.as_slice()[..],
-        ));
+        ctx.RSSetScissorRects(Some(&self.scissor_rects.as_slice()[..]));
+        ctx.RSSetViewports(Some(&self.viewports.as_slice()[..]));
         ctx.RSSetState(self.raster_state.take().as_ref());
         ctx.OMSetBlendState(
             self.blend_state.take().as_ref(),
