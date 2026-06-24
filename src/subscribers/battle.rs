@@ -23,6 +23,7 @@ use il2cpp_runtime::api::il2cpp_field_get_type;
 use il2cpp_runtime::get_cached_class;
 use il2cpp_runtime::types::Il2CppString;
 use il2cpp_runtime::types::System_Enum;
+use il2cpp_runtime::types::System_Int32__Boxed;
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ptr::null;
@@ -33,7 +34,10 @@ use std::sync::OnceLock;
 unsafe fn get_elapsed_av(game_mode: RPG_GameCore_TurnBasedGameMode) -> Result<f64> {
     log::debug!(function_name!());
     Ok(unsafe {
-        RPG_GameCore_FixPoint::to_double(*game_mode._ElapsedActionDelay_k__BackingField()?)? * 10.
+        game_mode
+            ._ElapsedActionDelay_k__BackingField()?
+            .to_double()?
+            * 10.
     })
 }
 
@@ -129,56 +133,67 @@ unsafe fn get_combo_field_offsets(class: Il2CppClass) -> Result<ComboFieldOffset
         .ok_or_else(|| anyhow!("Failed to cache on_combo field offsets"))
 }
 
-// I think this breaks overkill dmg
+unsafe fn resolve_attack_type_offset(class: Il2CppClass) -> Result<usize> {
+    let field_iter: *const c_void = null();
+    loop {
+        log::debug!("{}", class.qualified_name());
+        let field = il2cpp_class_get_fields(get_cached_class(class.qualified_name())?, &field_iter);
+        if field.0.is_null() {
+            break;
+        }
+
+        let field_type = il2cpp_field_get_type(field);
+        if field_type.name() == "RPG.GameCore.AttackType" {
+            return Ok(il2cpp_field_get_offset(field) as usize);
+        }
+    }
+
+    Err(anyhow!(
+        "Failed to find RPG.GameCore.AttackType field offset in damage info"
+    ))
+}
+
+unsafe fn get_attack_type_offset(class: Il2CppClass) -> Result<usize> {
+    static ATTACK_TYPE_OFFSET: OnceLock<usize> = OnceLock::new();
+    if let Some(offset) = ATTACK_TYPE_OFFSET.get() {
+        return Ok(*offset);
+    }
+
+    let offset = unsafe { resolve_attack_type_offset(class)? };
+    let _ = ATTACK_TYPE_OFFSET.set(offset);
+    ATTACK_TYPE_OFFSET
+        .get()
+        .copied()
+        .ok_or_else(|| anyhow!("Failed to cache attack type offset"))
+}
+
+
 #[named]
 fn on_damage(
-    defender_entity: RPG_GameCore_GameEntity,
+    instance: *const c_void,
+    damage_data: *const c_void,
+    attack_data: *const c_void,
+    ability_id: Il2CppString,
     attacker_entity: RPG_GameCore_GameEntity,
-    alive_state: RPG_GameCore_AliveState,
+    defender_entity: RPG_GameCore_GameEntity,
     damage: RPG_GameCore_FixPoint,
-    hp_initial: RPG_GameCore_FixPoint,
-) -> bool {
+    stance_damage: RPG_GameCore_FixPoint,
+    stance_element_ratio: RPG_GameCore_FixPoint,
+    custom_name: Il2CppString
+) -> *const c_void {
     log::debug!(function_name!());
-
-    let defender_ability =
-        match helpers::get_runtime_type(RPG_GameCore_TurnBasedAbilityComponent::ffi_name()) {
-            Ok(defender_ability_type) => match unsafe {
-                attacker_entity.get_component(defender_ability_type)
-            } {
-                Ok(defender_ability) => RPG_GameCore_TurnBasedAbilityComponent(defender_ability.0),
-                Err(e) => {
-                    log::error!("{} defender ability lookup error: {}", function_name!(), e);
-                    RPG_GameCore_TurnBasedAbilityComponent(null())
-                }
-            },
-            Err(e) => {
-                log::error!("{} defender ability type error: {}", function_name!(), e);
-                RPG_GameCore_TurnBasedAbilityComponent(null())
-            }
-        };
-    // let hp_initial =
-    //     match unsafe { defender_ability.get_property(RPG_GameCore_AbilityProperty::CurrentHP) } {
-    //         Ok(value) => value,
-    //         Err(e) => {
-    //             log::error!("{} HP initial error: {}", function_name!(), e);
-    //             RPG_GameCore_FixPoint { m_rawValue: 0 }
-    //         }
-    //     };
     let res = ON_DAMAGE_Detour.call(
-        defender_entity,
+        instance,
+        damage_data,
+        attack_data,
+        ability_id,
         attacker_entity,
-        alive_state,
+        defender_entity,
         damage,
-        hp_initial,
+        stance_damage,
+        stance_element_ratio,
+        custom_name
     );
-    let hp_final =
-        match unsafe { defender_ability.get_property(RPG_GameCore_AbilityProperty::CurrentHP) } {
-            Ok(value) => value,
-            Err(e) => {
-                log::error!("{} HP final error: {}", function_name!(), e);
-                RPG_GameCore_FixPoint { m_rawValue: 0 }
-            }
-        };
     safe_call!(unsafe {
         let mut event: Option<Result<Event>> = None;
         let attacker_ability =
@@ -199,27 +214,52 @@ fn on_damage(
                     RPG_GameCore_TurnBasedAbilityComponent(null())
                 }
             };
-        let attacker_team_value: RPG_GameCore_TeamType =
-            parse_il2cpp_enum(attacker_entity._Team()?)?;
+        let defender_ability =
+            match helpers::get_runtime_type(RPG_GameCore_TurnBasedAbilityComponent::ffi_name()) {
+                Ok(defender_ability_type) => match unsafe {
+                    defender_entity.get_component(defender_ability_type)
+                } {
+                    Ok(defender_ability) => {
+                        RPG_GameCore_TurnBasedAbilityComponent(defender_ability.0)
+                    }
+                    Err(e) => {
+                        log::error!("{} defender ability lookup error: {}", function_name!(), e);
+                        RPG_GameCore_TurnBasedAbilityComponent(null())
+                    }
+                },
+                Err(e) => {
+                    log::error!("{} defender ability type error: {}", function_name!(), e);
+                    RPG_GameCore_TurnBasedAbilityComponent(null())
+                }
+            };
 
+        let attacker_team_value: RPG_GameCore_TeamType = parse_il2cpp_enum(attacker_entity._Team()?)?;
         match attacker_team_value {
             RPG_GameCore_TeamType::TeamLight => {
-                // let damage
-                let hp_initial_raw = RPG_GameCore_FixPoint::to_double(hp_initial)?;
-                let hp_final_raw = RPG_GameCore_FixPoint::to_double(hp_final)?;
-                let damage = RPG_GameCore_FixPoint::to_double(damage)?;
-                let overkill_damage = if hp_initial_raw <= 0.0 {
-                    damage
-                } else if hp_final_raw <= 0.0 {
-                    (damage - hp_initial_raw).max(0.0)
+                let hp_initial = {
+                    let value = *System_Int32__Boxed(System_Enum::parse(
+                        get_type_handle("RPG.GameCore.AbilityProperty")?,
+                        Il2CppString::new(RPG_GameCore_AbilityProperty::CurrentHP.to_string())?,
+                    )?);
+
+                    defender_ability.get_property(std::mem::transmute(value.0))?.to_double()?
+                };
+                let damage = damage.to_double()?;
+                let overkill_damage = if damage > hp_initial {
+                    damage - hp_initial
                 } else {
                     0.0
                 };
 
                 let r#type = {
+                    let attack_type_offset =
+                        get_attack_type_offset(Il2CppClass(*(damage_data as *const *const c_void)))?;
+
+                    let damage_type =
+                        *(damage_data.byte_offset(attack_type_offset as isize) as *const i32);
                     let boxed = RPG_GameCore_AttackType__Boxed(System_Enum::to_object_from_int(
                         get_type_handle("RPG.GameCore.AttackType")?,
-                        attacker_ability.CurrentAttackType()? as i32,
+                        damage_type,
                     )?);
                     System_Enum::get_name(get_type_handle("RPG.GameCore.AttackType")?, boxed.0)?
                         .to_string()
@@ -849,10 +889,7 @@ fn handle_hp_change(turn_based_ability_component: RPG_GameCore_TurnBasedAbilityC
             Il2CppString::new(&property_kind)?,
         )?);
 
-        let property_value = RPG_GameCore_FixPoint::to_double(
-            turn_based_ability_component.get_property(*property)?,
-        )?;
-
+        let property_value = turn_based_ability_component.get_property(*property)?.to_double()?;
         let entity = turn_based_ability_component.as_base()._OwnerRef()?;
         let entity_value: RPG_GameCore_EntityType = parse_il2cpp_enum(entity._EntityType()?)?;
 
@@ -942,7 +979,7 @@ pub fn on_stat_change(
         )?);
         let property_kind =
             System_Enum::get_name(get_type_handle("RPG.GameCore.AbilityProperty")?, boxed.0)?;
-        let mut property_value = RPG_GameCore_FixPoint::to_double(new_stat)?;
+        let mut property_value = new_stat.to_double()?;
         let entity_value: RPG_GameCore_EntityType = parse_il2cpp_enum(entity._EntityType()?)?;
 
         if boxed.unbox()? == RPG_GameCore_AbilityProperty::ActionDelay {
@@ -1202,11 +1239,11 @@ pub fn on_initialize_enemy(
         }
             as f64);
         base_stats.set_value(RPG_GameCore_AbilityProperty::MaxHP.to_string(), unsafe {
-            RPG_GameCore_FixPoint::to_double(*instance._DefaultMaxHP()?)?
+            instance._DefaultMaxHP()?.to_double()?
         });
         base_stats.set_value(
             RPG_GameCore_AbilityProperty::CurrentHP.to_string(),
-            unsafe { RPG_GameCore_FixPoint::to_double(*instance._DefaultMaxHP()?)? },
+            unsafe { instance._DefaultMaxHP()?.to_double()? },
         );
 
         let name_id = row.MonsterName()?;
@@ -1227,7 +1264,7 @@ pub fn on_initialize_enemy(
 }
 
 retour::static_detour! {
-    static ON_DAMAGE_Detour: fn(RPG_GameCore_GameEntity, RPG_GameCore_GameEntity, RPG_GameCore_AliveState, RPG_GameCore_FixPoint, RPG_GameCore_FixPoint) -> bool;
+    static ON_DAMAGE_Detour: fn(*const c_void, *const c_void, *const c_void, Il2CppString, RPG_GameCore_GameEntity, RPG_GameCore_GameEntity, RPG_GameCore_FixPoint, RPG_GameCore_FixPoint, RPG_GameCore_FixPoint, Il2CppString) -> *const c_void;
     static ON_COMBO_Detour: fn(*const c_void, RPG_GameCore_TurnBasedGameMode);
     static ON_USE_SKILL_Detour: fn(RPG_GameCore_SkillCharacterComponent, i32, *const c_void, bool, *const c_void, *const c_void, i32) -> bool;
     static ON_SET_LINEUP_Detour: fn(RPG_GameCore_BattleInstance, *const c_void, RPG_GameCore_BattleLineupData, i32, u32, bool);
@@ -1249,15 +1286,19 @@ pub fn subscribe() -> Result<()> {
     unsafe {
         subscribe_function!(
             ON_DAMAGE_Detour,
-            get_cached_class("RPG.GameCore.AbilityStatic")?
+            get_cached_class("RPG.GameCore.LevelPreDamageEntity")?
                 .find_method(
-                    "CommonProcessForDamageFinish",
+                    "Init",
                     vec![
+                        "*",
+                        "RPG.GameCore.AttackData",
+                        "string",
                         "RPG.GameCore.GameEntity",
                         "RPG.GameCore.GameEntity",
-                        "RPG.GameCore.AliveState",
                         "RPG.GameCore.FixPoint",
                         "RPG.GameCore.FixPoint",
+                        "RPG.GameCore.FixPoint",
+                        "string"
                     ]
                 )?
                 .va(),

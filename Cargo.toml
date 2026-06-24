@@ -3,7 +3,7 @@ name = "veritas"
 edition = "2024"
 license-file = "LICENSE"
 repository = "https://github.com/hessiser/veritas/"
-version = "0.2.49"
+version = "0.2.52"
 
 [package.metadata.winres]
 
@@ -37,7 +37,7 @@ chrono = { version = "0.4", features = ["serde"] }
 patternscan = "1.2.0"
 microseh = "1.1.2"
 strum = { version = "0.28", features = ["derive"] }
-il2cpp-runtime = { git = "https://github.com/hessiser/il2cpp-rust.git", rev = "aa08cdd" , features = ["log"]}
+il2cpp-runtime = { git = "https://github.com/hessiser/il2cpp-rust.git", rev = "51f8c1f" , features = ["log"]}
 
 [dependencies.windows]
 version = "0.61.3"

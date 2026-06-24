@@ -39,6 +39,7 @@ pub(crate) fn display_damage_type(attack_type: &RPG_GameCore_AttackType) -> Stri
         RPG_GameCore_AttackType::Servant => "Servant",
         RPG_GameCore_AttackType::TrueDamage => "True",
         RPG_GameCore_AttackType::ElationDamage => "Elation",
+        RPG_GameCore_AttackType::Assist => "Assist",
         _ => other.as_str(),
     }
     .to_string()
