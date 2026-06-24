@@ -37,13 +37,17 @@ fn init() {
             toasts.push(Toast::success(msg));
         }
         Err(e) => {
-            let err = format!(
-                "Plugin version is incompatible with the game. Core has been disabled: {e}"
-            );
+            let err_tip = format!("Plugin is incompatible with this version of the game. Check {}/releases for updates.", env!("CARGO_PKG_REPOSITORY"));
+            let mut toast = Toast::error(err_tip);
+            toast.duration(None);
+            toasts.push(toast);
+
+            let err = format!("Core has been disabled: {}", e);
             log::error!("{}", err);
             let mut toast = Toast::error(err);
             toast.duration(None);
             toasts.push(toast);
+
         }
     };
 
@@ -116,6 +120,7 @@ fn setup_subscribers() -> anyhow::Result<()> {
             il2cpp_class_get_namespace: 39,
             il2cpp_class_get_parent: 40,
             il2cpp_class_from_type: 49,
+            il2cpp_class_get_type: 51,
             il2cpp_domain_get: 63,
             il2cpp_domain_get_assemblies: 65,
             il2cpp_field_get_name: 73,
